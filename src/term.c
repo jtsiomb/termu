@@ -40,7 +40,7 @@ static int proc_char(int c)
 	if(isprint(c)) {
 		printf(" %c", c);
 	} else {
-		printf(" %x", (unsigned int)c);
+		printf(" %xh", (unsigned int)c);
 	}
 	fflush(stdout);
 	*/
@@ -61,7 +61,7 @@ static int proc_char(int c)
 				}
 				break;
 			case 3:
-				if(c < ' ' || c > '7') {
+				if(c < ' ' || c > 'o') {
 					clen = 0;
 					return 0;
 				}
