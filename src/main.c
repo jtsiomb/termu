@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	char *shell;
 	fd_set rdset;
 	char buf[1024];
+	struct timeval tv;
 
 	if(!(shell = getenv("SHELL"))) {
 		shell = "/bin/sh";
@@ -86,8 +87,13 @@ int main(int argc, char **argv)
 		FD_SET(pty, &rdset);
 		FD_SET(xfd, &rdset);
 
+		tv.tv_sec = 0;
+		tv.tv_usec = 250000;
+
 		XFlush(miniglut_x11_display());
-		while(select(maxfd + 1, &rdset, 0, 0, 0) == -1 && errno == EINTR);
+		while(select(maxfd + 1, &rdset, 0, 0, &tv) == -1 && errno == EINTR);
+
+		glutPostRedisplay();
 
 		if(FD_ISSET(pty, &rdset)) {
 			rdsz = read(pty, buf, sizeof buf);
@@ -95,9 +101,9 @@ int main(int argc, char **argv)
 				glutPostRedisplay();
 			}
 		}
-		if(FD_ISSET(xfd, &rdset)) {
+		/*if(FD_ISSET(xfd, &rdset)) {*/
 			glutMainLoopEvent();
-		}
+		/*}*/
 	}
 
 	return 0;
@@ -127,6 +133,7 @@ static void display(void)
 {
 	int i, j;
 	unsigned char *scrptr = scrbuf;
+	unsigned int msec = glutGet(GLUT_ELAPSED_TIME);
 
 	glClearColor(0.1, 0.1, 0.1, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -149,12 +156,23 @@ static void display(void)
 	}
 	text_end();
 
+	if(cursor_vis && (!cursor_blink || ((msec >> 9) & 1))) {
+		int y = 23 - cursor_y;
+
+		glLogicOp(GL_XOR);
+		glEnable(GL_COLOR_LOGIC_OP);
+
+		glColor3f(1, 1, 1);
+		glRectf(cursor_x + 0.1f, y + 1.0 / 9.0, cursor_x + 1, y + 0.95f);
+
+		glDisable(GL_COLOR_LOGIC_OP);
+	}
+
 	glutSwapBuffers();
 }
 
 static void reshape(int x, int y)
 {
-	printf("RESHAPE\n");
 	win_width = x;
 	win_height = y;
 
@@ -164,7 +182,7 @@ static void reshape(int x, int y)
 static unsigned char shifted[] = {
 	"\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017"
 	"\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037"
-	"\040\041\042\043\044\045\046\047\050\051\052\053<_>?"
+	"\040\041\042\043\044\045\046\"\050\051\052\053<_>?"
 	")!@#$%^&*(;:<+>?"
 	"@ABCDEFGHIJKLMNO"
 	"PQRSTUVWXYZ{|}^_"

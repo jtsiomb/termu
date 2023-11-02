@@ -6,11 +6,13 @@
 static void clearscr(void);
 static void scroll(void);
 
-int cursor_x, cursor_y, cursor_vis;
+int cursor_x, cursor_y, cursor_vis, cursor_blink;
 unsigned char scrbuf[TERM_COLS * TERM_ROWS];
 
 void term_init(void)
 {
+	cursor_vis = 1;
+	cursor_blink = 0;
 	clearscr();
 }
 
@@ -34,12 +36,14 @@ static int proc_char(int c)
 {
 	static int cbuf[8], clen;
 
+	/*
 	if(isprint(c)) {
 		printf(" %c", c);
 	} else {
 		printf(" %x", (unsigned int)c);
 	}
 	fflush(stdout);
+	*/
 
 	if(clen) {
 		if(cbuf[0] == 0x1b) {
@@ -66,6 +70,8 @@ static int proc_char(int c)
 				clen = 0;
 				return 1;
 			}
+			cbuf[clen++] = c;
+			return 0;
 		}
 	}
 
@@ -85,8 +91,9 @@ static int proc_char(int c)
 		break;
 
 	case '\n':
-		if(cursor_y >= TERM_ROWS) {
+		if(cursor_y >= TERM_ROWS - 1) {
 			scroll();
+			cursor_y = TERM_ROWS - 1;
 		} else {
 			cursor_y++;
 		}
