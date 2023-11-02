@@ -81,6 +81,7 @@ static int proc_char(int c)
 
 	case '\a':
 		putchar('\a');
+		fflush(stdout);
 		break;
 
 	case '\b':
