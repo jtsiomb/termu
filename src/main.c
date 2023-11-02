@@ -211,6 +211,10 @@ static void keypress(unsigned char key, int x, int y)
 		}
 	}
 
+	if(mod & GLUT_ACTIVE_CTRL) {
+		key &= 0x1f;
+	}
+
 	write(pty, &key, 1);
 }
 
