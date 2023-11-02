@@ -1,0 +1,9 @@
+*.o
+*.d
+*.swp
+termu
+data/
+*.json
+core
+*.ppm
+*.png
