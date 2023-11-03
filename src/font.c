@@ -1,5 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <imago2.h>
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include "font.h"
@@ -11,8 +14,14 @@
 #define TEX_NCOLS	16
 #define TEX_NROWS	(ROM_CHARS / TEX_NCOLS)
 
-#define TEX_WIDTH	(TEX_NCOLS * 8)
-#define TEX_HEIGHT	(TEX_NROWS * 8)
+#define CELL_WIDTH	8
+#define CELL_HEIGHT	8
+
+#define CELL_SCALE	16
+#define SCAN_WIDTH	14
+
+#define TEX_WIDTH	(TEX_NCOLS * CELL_WIDTH * CELL_SCALE)
+#define TEX_HEIGHT	(TEX_NROWS * CELL_HEIGHT * CELL_SCALE)
 
 #define UVWIDTH		(1.0f / (float)TEX_NCOLS)
 #define UVHEIGHT	(1.0f / (float)TEX_NROWS)
@@ -33,6 +42,81 @@ static struct vertex varr[VB_NVERTS];
 static int nglyphs, cur_vbo;
 static unsigned int vbo[2];
 
+static unsigned char cap[CELL_SCALE * CELL_SCALE];
+
+static float smoothstep(float a, float b, float x)
+{
+	if(x < a) return 0.0f;
+	if(x >= b) return 1.0f;
+
+	x = (x - a) / (b - a);
+	return x * x * (3.0f - 2.0f * x);
+}
+
+static void gen_cap(void)
+{
+	int i, j;
+	unsigned char *dest = cap;
+
+	for(i=0; i<CELL_SCALE; i++) {
+		float dy = (float)i - CELL_SCALE * 0.5f;
+		for(j=0; j<CELL_SCALE; j++) {
+			float dx = (float)j - CELL_SCALE * 0.5f;
+			float dist = sqrt(dx * dx + dy * dy);
+
+			float val = 1.0f - smoothstep(SCAN_WIDTH / 2.0f - 1.0f, SCAN_WIDTH / 2.0f + 1.0f, dist);
+			*dest++ = (int)(val * 255.0f);
+		}
+	}
+
+	/*img_save_pixels("cap.png", cap, CELL_SCALE, CELL_SCALE, IMG_FMT_GREY8);*/
+}
+
+enum {CAP_START, CAP_MID, CAP_END, EMPTY_START, EMPTY_END};
+static int blitcap(unsigned char *dest, int len, int type, int pitch)
+{
+	int i, j;
+	unsigned char *src;
+
+	if(type == EMPTY_START || type == EMPTY_END) {
+		src = type == EMPTY_START ? cap : cap + CELL_SCALE / 2;
+
+		for(i=0; i<CELL_SCALE; i++) {
+			for(j=0; j<CELL_SCALE/2; j++) {
+				dest[j] = (~src[j]);
+			}
+			dest += pitch;
+			src += CELL_SCALE;
+		}
+
+		return CELL_SCALE/2;
+	}
+
+	if(type == CAP_MID) {
+		/* repeat a single columns of pixels */
+		for(i=0; i<len; i++) {
+			unsigned char *p = dest + i;
+			src = cap + CELL_SCALE / 2;
+			for(j=0; j<CELL_SCALE; j++) {
+				*p = *src;
+				p += pitch;
+				src += CELL_SCALE;
+			}
+		}
+		return len > 0 ? len : 0;
+	}
+
+	src = type == CAP_START ? cap : cap + CELL_SCALE / 2;
+
+	for(i=0; i<CELL_SCALE; i++) {
+		for(j=0; j<CELL_SCALE/2; j++) {
+			dest[j] = src[j];
+		}
+		dest += pitch;
+		src += CELL_SCALE;
+	}
+	return CELL_SCALE/2;
+}
 
 static int transform(int c)
 {
@@ -44,43 +128,54 @@ static int transform(int c)
 
 void text_init(void)
 {
-	int i, j, k, glyph;
-	unsigned char img[TEX_WIDTH * TEX_HEIGHT];
-	unsigned char *src, *dest = img;
+	int i, j, k, len, start, glyph;
+	unsigned char *img;
+	unsigned char *src, *dest;
 
-	memset(img, 0, sizeof img);
+	gen_cap();
+
+	dest = img = calloc(TEX_WIDTH, TEX_HEIGHT);
 
 	for(i=0; i<ROM_CHARS; i++) {
 		glyph = transform(i + 0x20);
 		src = rom_upper + glyph * 8;
 		for(j=0; j<8; j++) {
 			unsigned char row = (*src++ & 0x1f) << 2;
+			start = -1;
 			for(k=0; k<8; k++) {
-				dest[k] = (row >> (7 - k)) & 1 ? 0xff : 0;
+				if((row >> (7 - k)) & 1) {
+					if(start == -1) start = k;
+				} else {
+					if(start >= 0) {
+						len = k - start - 1;
+						dest += blitcap(dest, 0, CAP_START, TEX_WIDTH);
+						if(len > 0) {
+							dest += blitcap(dest, CELL_SCALE * len, CAP_MID, TEX_WIDTH);
+						}
+						dest += blitcap(dest, 0, CAP_END, TEX_WIDTH);
+						start = -1;
+					}
+					dest += CELL_SCALE;
+					/*dest += blitcap(dest, 0, EMPTY_START, TEX_WIDTH);
+					dest += blitcap(dest, 0, EMPTY_END, TEX_WIDTH);*/
+				}
 			}
-			dest += TEX_WIDTH;
+			dest += (TEX_WIDTH - CELL_WIDTH) * CELL_SCALE;
 		}
 
 		if((i & 0xf) == 0xf) {
-			dest -= TEX_WIDTH - 8;
+			dest -= TEX_WIDTH - CELL_WIDTH * CELL_SCALE;
 		} else {
-			dest = dest + 8 - TEX_WIDTH * 8;
+			dest = dest + (8 - TEX_WIDTH * 8) * CELL_SCALE;
 		}
-
 	}
-	/*{
-		FILE *fp = fopen("font.ppm", "wb");
-		if(fp) {
-			fprintf(fp, "P5\n%d %d\n255\n", TEX_WIDTH, TEX_HEIGHT);
-			fwrite(img, 1, TEX_WIDTH * TEX_HEIGHT, fp);
-			fclose(fp);
-		}
-	}*/
+
+	img_save_pixels("font.png", img, TEX_WIDTH, TEX_HEIGHT, IMG_FMT_GREY8);
 
 	glGenTextures(1, &tex_font);
 	glBindTexture(GL_TEXTURE_2D, tex_font);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, TEX_WIDTH, TEX_HEIGHT, 0,
 			GL_LUMINANCE, GL_UNSIGNED_BYTE, img);
 
