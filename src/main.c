@@ -308,7 +308,7 @@ static void display(void)
 	for(i=0; i<GLOW_PASSES; i++) {
 		glPushMatrix();
 		glTranslatef(glowtab[i][0] / win_width, glowtab[i][1] / win_height, 0);
-		glColor4f(0.5f, 0.75f, 1.0f, glowtab[i][2] / GLOW_PASSES);
+		glColor4f(0.5f, 0.7f, 1.0f, glowtab[i][2] / GLOW_PASSES);
 		glCallList(tubemesh);
 		glPopMatrix();
 	}
