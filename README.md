@@ -26,4 +26,12 @@ Build
 The repo does not include the binary character generator ROMs of the ADM3a. Grab
 the `data` directory from a release archive.
 
-Run `make` to build.
+### Dependencies
+
+  - OpenGL
+  - imago2: https://github.com/jtsiomb/libimago
+  - jpeglib
+  - libpng
+  - zlib
+
+Install the dependenices, then run `make` to build.

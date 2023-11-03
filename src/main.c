@@ -18,12 +18,12 @@
 #include "font.h"
 #include "term.h"
 
-#define GLOW_PASSES		40
-#define GLOW_SPREAD		3.5f
-#define GLOW_STR		4.0f
+#define GLOW_PASSES		32
+#define GLOW_SPREAD		4.5f
+#define GLOW_STR		3.5f
 
-#define FBO_WIDTH	800
-#define FBO_HEIGHT	600
+#define FBO_WIDTH	2048
+#define FBO_HEIGHT	2048
 
 #define CRT_URES	64
 #define CRT_VRES	64
@@ -178,7 +178,7 @@ static int init(void)
 		float x = (u) - 0.5f; \
 		float y = (v) - 0.5f; \
 		float d = sqrt(x * x + y * y); \
-		float z = cos(d * M_PI) * 0.1; \
+		float z = cos(d * M_PI) * 0.09; \
 		glTexCoord2f(u, v); \
 		glVertex3f(x, y, z); \
 	} while(0)
@@ -210,11 +210,14 @@ static int init(void)
 	bezeltex = img_gltexture_read(&imgio);
 
 	for(i=0; i<GLOW_PASSES; i++) {
-		float dx = (float)rand() / (float)RAND_MAX - 0.5f;
-		float dy = (float)rand() / (float)RAND_MAX - 0.5f;
-		float alpha = sqrt(dx * dx + dy * dy);
-		glowtab[i][0] = dx * GLOW_SPREAD;
-		glowtab[i][1] = dy * GLOW_SPREAD;
+		float dx, dy, alpha;
+		do {
+			dx = (float)rand() / (float)RAND_MAX - 0.5f;
+			dy = (float)rand() / (float)RAND_MAX - 0.5f;
+			alpha = 1.0f - sqrt(dx * dx + dy * dy);
+		} while(alpha <= 0.001f);
+		glowtab[i][0] = dx * GLOW_SPREAD * 0.001;
+		glowtab[i][1] = dy * GLOW_SPREAD * 0.001;
 		glowtab[i][2] = alpha * GLOW_STR;
 	}
 
@@ -307,7 +310,7 @@ static void display(void)
 
 	for(i=0; i<GLOW_PASSES; i++) {
 		glPushMatrix();
-		glTranslatef(glowtab[i][0] / win_width, glowtab[i][1] / win_height, 0);
+		glTranslatef(glowtab[i][0], glowtab[i][1], 0);
 		glColor4f(0.5f, 0.7f, 1.0f, glowtab[i][2] / GLOW_PASSES);
 		glCallList(tubemesh);
 		glPopMatrix();
