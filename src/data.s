@@ -7,3 +7,9 @@ rom_upper:
 	.globl rom_lower
 rom_lower:
 	.incbin "data/adm3l.rom"
+
+	.globl bezel_imgdata
+bezel_imgdata:
+	.incbin "data/adm3a.jpg"
+	.globl bezel_imgdata_end
+bezel_imgdata_end:

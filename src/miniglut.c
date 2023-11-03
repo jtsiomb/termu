@@ -2194,7 +2194,7 @@ void glutSolidSphere(float rad, int slices, int stacks)
 				y = costheta * sinphi;
 				z = cosphi;
 
-				glColor3f(s, t, 1);
+				glColor3f(1, 1, 1);
 				glTexCoord2f(s, t);
 				glNormal3f(x, y, z);
 				glVertex3f(x * rad, y * rad, z * rad);

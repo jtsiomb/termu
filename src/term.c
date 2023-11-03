@@ -12,7 +12,7 @@ unsigned char scrbuf[TERM_COLS * TERM_ROWS];
 void term_init(void)
 {
 	cursor_vis = 1;
-	cursor_blink = 0;
+	cursor_blink = 1;
 	clearscr();
 }
 
