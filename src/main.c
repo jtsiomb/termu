@@ -39,7 +39,7 @@ static void cleanup(void);
 static void display(void);
 static void reshape(int x, int y);
 static void keypress(unsigned char key, int x, int y);
-static void keyrelease(unsigned char key, int x, int y);
+static void skeypress(int key, int x, int y);
 static void sighandler(int s);
 
 static size_t imgread(void *buf, size_t bytes, void *uptr);
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keypress);
-	glutKeyboardUpFunc(keyrelease);
+	glutSpecialFunc(skeypress);
 
 	if(init() == -1) {
 		kill(pid, SIGINT);
@@ -342,20 +342,16 @@ static unsigned char shifted[] = {
 	"PQRSTUVWXYZ{|}~\077"
 };
 
+static void transmit(unsigned char key)
+{
+	write(pty, &key, 1);
+}
+
+#define CTRLMASK	0x1f
+
 static void keypress(unsigned char key, int x, int y)
 {
 	unsigned int mod = glutGetModifiers();
-
-	switch(key) {
-	case 'q':
-		if(mod & GLUT_ACTIVE_CTRL) {
-			exit(0);
-		}
-		break;
-
-	default:
-		break;
-	}
 
 	if(mod & GLUT_ACTIVE_SHIFT) {
 		if(key < 0x80) {
@@ -364,14 +360,33 @@ static void keypress(unsigned char key, int x, int y)
 	}
 
 	if(mod & GLUT_ACTIVE_CTRL) {
-		key &= 0x1f;
+		key &= CTRLMASK;
 	}
 
-	write(pty, &key, 1);
+	transmit(key);
 }
 
-static void keyrelease(unsigned char key, int x, int y)
+static void skeypress(int key, int x, int y)
 {
+	switch(key) {
+	case GLUT_KEY_LEFT:
+		transmit(CTRLMASK & 'h');
+		break;
+	case GLUT_KEY_DOWN:
+		transmit(CTRLMASK & 'j');
+		break;
+	case GLUT_KEY_UP:
+		transmit(CTRLMASK & 'k');
+		break;
+	case GLUT_KEY_RIGHT:
+		transmit(CTRLMASK & 'l');
+		break;
+	case GLUT_KEY_HOME:
+		transmit(0x1e);	/* RS */
+		break;
+	default:
+		break;
+	}
 }
 
 static void sighandler(int s)

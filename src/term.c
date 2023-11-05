@@ -98,7 +98,6 @@ static int proc_char(int c)
 		} else {
 			cursor_y++;
 		}
-		cursor_x = 0;
 		return 1;
 
 	case '\v':
